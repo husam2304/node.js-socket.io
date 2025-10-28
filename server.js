@@ -93,16 +93,16 @@ io.on("connection", (socket) => {
 
   // ==================== WEBRTC CALL SIGNALING (Direct P2P) ====================
 
-  // Send WebRTC order
-  socket.on("call:order", (data) => {
-    const { callId, receiverId, order } = data;
+  // Send WebRTC offer
+  socket.on("call:offer", (data) => {
+    const { callId, receiverId, offer } = data;
 
     const receiverSocketId = userConnections.get(receiverId);
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("call:order", {
+      io.to(receiverSocketId).emit("call:offer", {
         callId,
         callerId: userId,
-        order,
+        offer,
         timestamp: new Date().toISOString(),
       });
       console.log(`📞 WebRTC order sent from ${userId} to ${receiverId} for call ${callId}`);
