@@ -97,16 +97,28 @@ io.on("connection", (socket) => {
   socket.on("call:offer", (data) => {
     const { callId, receiverId, offer } = data;
 
+    // VALIDATION: Don't send offer back to sender
+    if (receiverId === userId) {
+      console.error(`❌ Cannot send offer to self: ${userId}`);
+      socket.emit("call:error", {
+        callId,
+        error: "Cannot call yourself",
+      });
+      return;
+    }
+
     const receiverSocketId = userConnections.get(receiverId);
     if (receiverSocketId) {
+      // Send ONLY to receiver, NOT back to sender
       io.to(receiverSocketId).emit("call:offer", {
         callId,
         callerId: userId,
         offer,
         timestamp: new Date().toISOString(),
       });
-      console.log(`📞 WebRTC order sent from ${userId} to ${receiverId} for call ${callId}`);
+      console.log(`📞 [OFFER] ${userId} → ${receiverId} (call: ${callId})`);
     } else {
+      console.error(`❌ Receiver ${receiverId} not connected`);
       socket.emit("call:error", {
         callId,
         error: "Receiver not connected",
@@ -118,15 +130,23 @@ io.on("connection", (socket) => {
   socket.on("call:answer", (data) => {
     const { callId, callerId, answer } = data;
 
+    // VALIDATION: Don't send answer back to sender
+    if (callerId === userId) {
+      console.error(`❌ Cannot send answer to self: ${userId}`);
+      return;
+    }
+
     const callerSocketId = userConnections.get(callerId);
     if (callerSocketId) {
+      // Send ONLY to caller, NOT back to answerer
       io.to(callerSocketId).emit("call:answer", {
         callId,
-        receiverId: userId,
-        answer,
+        answer,  // FIXED: Remove confusing receiverId field
         timestamp: new Date().toISOString(),
       });
-      console.log(`📞 WebRTC answer sent from ${userId} to ${callerId} for call ${callId}`);
+      console.log(`📞 [ANSWER] ${userId} → ${callerId} (call: ${callId})`);
+    } else {
+      console.error(`❌ Caller ${callerId} not connected`);
     }
   });
 
@@ -134,18 +154,25 @@ io.on("connection", (socket) => {
   socket.on("call:ice-candidate", (data) => {
     const { callId, targetUserId, candidate } = data;
 
+    // VALIDATION: Don't send candidate back to sender
+    if (targetUserId === userId) {
+      console.error(`❌ Cannot send ICE candidate to self: ${userId}`);
+      return;
+    }
+
     const targetSocketId = userConnections.get(targetUserId);
     if (targetSocketId) {
+      // Send ONLY to target, NOT back to sender
       io.to(targetSocketId).emit("call:ice-candidate", {
         callId,
-        fromUserId: userId,
-        candidate,
+        candidate,  // FIXED: Removed confusing fromUserId field
         timestamp: new Date().toISOString(),
       });
-      console.log(`📞 ICE candidate sent from ${userId} to ${targetUserId}`);
+      console.log(`📞 [ICE] ${userId} → ${targetUserId} (call: ${callId})`);
+    } else {
+      console.error(`❌ Target ${targetUserId} not connected for ICE candidate`);
     }
   });
-
   // ==================== GENERAL EVENTS ====================
 
   // Ping/Pong for keep-alive
